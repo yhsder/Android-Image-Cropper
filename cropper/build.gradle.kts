@@ -12,11 +12,6 @@ licensee {
   allow("Apache-2.0")
 }
 
-kotlin {
-  jvmToolchain {
-    languageVersion.set(JavaLanguageVersion.of(11))
-  }
-}
 
 android {
   namespace = "com.canhub.cropper"
@@ -32,10 +27,12 @@ android {
   }
 
   compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
   }
-
+  kotlinOptions {
+    jvmTarget = JavaVersion.VERSION_17.toString()
+  }
   testOptions {
     unitTests.isIncludeAndroidResources = true
   }
