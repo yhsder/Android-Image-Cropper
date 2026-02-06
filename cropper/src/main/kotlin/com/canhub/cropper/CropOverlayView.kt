@@ -36,6 +36,13 @@ internal class CropOverlayView @JvmOverloads constructor(
   attrs: AttributeSet? = null,
 ) : View(context, attrs) {
   internal companion object {
+    internal data class LineSegment(
+      val startX: Float,
+      val startY: Float,
+      val endX: Float,
+      val endY: Float,
+    )
+
     /** Creates the paint object for drawing text label over crop overlay. */
     internal fun getTextPaint(options: CropImageOptions): Paint =
       Paint().apply {
@@ -71,6 +78,53 @@ internal class CropOverlayView @JvmOverloads constructor(
       borderPaint.style = Paint.Style.FILL
       borderPaint.isAntiAlias = true
       return borderPaint
+    }
+
+    internal fun shouldDrawMiddleSegments(
+      showMiddleSegments: Boolean,
+      cropShape: CropShape?,
+      cornerShape: CropImageView.CropCornerShape?,
+    ) = showMiddleSegments &&
+      cropShape == CropShape.RECTANGLE &&
+      cornerShape != CropImageView.CropCornerShape.OVAL
+
+    internal fun getMiddleSegmentLines(
+      cropWindowRect: RectF,
+      borderLineWidth: Float,
+      cornerLineWidth: Float,
+      cornerLength: Float,
+      borderCornerOffset: Float,
+    ): List<LineSegment> {
+      val cornerOffset = (cornerLineWidth - borderLineWidth) / 2
+      val cornerInset = cornerLineWidth / 2 + borderCornerOffset
+      val rect = RectF(cropWindowRect)
+      rect.inset(cornerInset, cornerInset)
+      return listOf(
+        LineSegment(
+          startX = rect.centerX() - cornerLength,
+          startY = rect.top - cornerOffset,
+          endX = rect.centerX() + cornerLength,
+          endY = rect.top - cornerOffset,
+        ),
+        LineSegment(
+          startX = rect.centerX() - cornerLength,
+          startY = rect.bottom + cornerOffset,
+          endX = rect.centerX() + cornerLength,
+          endY = rect.bottom + cornerOffset,
+        ),
+        LineSegment(
+          startX = rect.left - cornerOffset,
+          startY = rect.centerY() - cornerLength,
+          endX = rect.left - cornerOffset,
+          endY = rect.centerY() + cornerLength,
+        ),
+        LineSegment(
+          startX = rect.right + cornerOffset,
+          startY = rect.centerY() - cornerLength,
+          endX = rect.right + cornerOffset,
+          endY = rect.centerY() + cornerLength,
+        ),
+      )
     }
   }
 
@@ -137,6 +191,9 @@ internal class CropOverlayView @JvmOverloads constructor(
 
   /** The length of the border corner to draw. */
   private var mBorderCornerLength = 0f
+
+  /** Whether the frame should render middle segments for rectangle crop shape. */
+  private var mShowMiddleSegments = false
 
   /** The initial crop window padding from image borders. */
   private var mInitialCropWindowPaddingRatio = 0f
@@ -507,6 +564,7 @@ internal class CropOverlayView @JvmOverloads constructor(
     mBorderPaint = getNewPaintOrNull(options.borderLineThickness, options.borderLineColor)
     mBorderCornerOffset = options.borderCornerOffset
     mBorderCornerLength = options.borderCornerLength
+    mShowMiddleSegments = options.showMiddleSegments
     mCircleCornerFillColor = options.circleCornerFillColorHexValue
     mBorderCornerPaint = getNewPaintOrNull(options.borderCornerThickness, options.borderCornerColor)
     mGuidelinePaint = getNewPaintOrNull(options.guidelinesThickness, options.guidelinesColor)
@@ -672,6 +730,7 @@ internal class CropOverlayView @JvmOverloads constructor(
     mBorderCornerPaint = getNewPaintOrNull(mOptions?.borderCornerThickness ?: 0.0f, mOptions?.borderCornerColor ?: Color.WHITE)
     drawCropLabelText(canvas)
     drawBorders(canvas)
+    drawMiddleSegments(canvas)
     drawCorners(canvas)
 
     if (SDK_INT >= Build.VERSION_CODES.Q) {
@@ -879,6 +938,24 @@ internal class CropOverlayView @JvmOverloads constructor(
         CropShape.OVAL -> canvas.drawOval(rect, mBorderPaint!!)
         else -> throw IllegalStateException("Unrecognized crop shape")
       }
+    }
+  }
+
+  /** Draw middle segments for rectangle crop frame style. */
+  private fun drawMiddleSegments(canvas: Canvas) {
+    val cornerPaint = mBorderCornerPaint ?: return
+    if (mBorderCornerLength <= 0f) return
+    if (!shouldDrawMiddleSegments(mShowMiddleSegments, cropShape, cornerShape)) return
+
+    val lines = getMiddleSegmentLines(
+      cropWindowRect = mCropWindowHandler.getRect(),
+      borderLineWidth = mBorderPaint?.strokeWidth ?: 0f,
+      cornerLineWidth = cornerPaint.strokeWidth,
+      cornerLength = mBorderCornerLength,
+      borderCornerOffset = mBorderCornerOffset,
+    )
+    lines.forEach { line ->
+      canvas.drawLine(line.startX, line.startY, line.endX, line.endY, cornerPaint)
     }
   }
 

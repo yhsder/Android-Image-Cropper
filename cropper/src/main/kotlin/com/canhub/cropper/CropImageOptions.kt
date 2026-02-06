@@ -33,6 +33,7 @@ import kotlinx.parcelize.Parcelize
   @JvmField var scaleType: CropImageView.ScaleType = CropImageView.ScaleType.FIT_CENTER,
   @JvmField var showCropOverlay: Boolean = true,
   @JvmField var showCropLabel: Boolean = false,
+  @JvmField var showMiddleSegments: Boolean = false,
   @JvmField var showProgressBar: Boolean = true,
   @JvmField @ColorInt var progressBarColor: Int = Color.rgb(153, 51, 153),
   @JvmField var autoZoomEnabled: Boolean = true,

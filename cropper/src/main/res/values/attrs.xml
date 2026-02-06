@@ -58,5 +58,6 @@
     <attr name="cropperLabelTextColor" format="color"/>
     <attr name="cropperLabelText" format="string"/>
     <attr name="cropShowLabel" format="boolean"/>
+    <attr name="cropShowMiddleSegments" format="boolean"/>
   </declare-styleable>
 </resources>

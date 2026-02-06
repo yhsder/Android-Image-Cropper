@@ -1844,6 +1844,7 @@ class CropImageView @JvmOverloads constructor(
             cropperLabelTextSize = a.getDimension(R.styleable.CropImageView_cropperLabelTextSize, default.cropperLabelTextSize),
             cropperLabelTextColor = a.getInteger(R.styleable.CropImageView_cropperLabelTextColor, default.cropperLabelTextColor),
             showCropLabel = a.getBoolean(R.styleable.CropImageView_cropShowLabel, default.showCropLabel),
+            showMiddleSegments = a.getBoolean(R.styleable.CropImageView_cropShowMiddleSegments, default.showMiddleSegments),
             maxZoom = a.getInteger(R.styleable.CropImageView_cropMaxZoom, default.maxZoom),
             showCropOverlay = a.getBoolean(R.styleable.CropImageView_cropShowCropOverlay, default.showCropOverlay),
             showProgressBar = a.getBoolean(R.styleable.CropImageView_cropShowProgressBar, default.showProgressBar),

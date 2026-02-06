@@ -33,6 +33,7 @@
   <string name="multi_touch">Multi Touch</string>
   <string name="center_move">Enable movement by dragging center</string>
   <string name="show_crop_overlay">Show Crop Overlay</string>
+  <string name="show_middle_segments">Show Middle Segments</string>
   <string name="show_progress_bar">Show Progress Bar</string>
   <string name="flip_horizontal">Flip Horizontal</string>
   <string name="flip_vertical">Flip Vertical</string>

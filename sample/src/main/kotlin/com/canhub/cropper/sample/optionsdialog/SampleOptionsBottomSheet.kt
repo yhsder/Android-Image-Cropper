@@ -97,6 +97,7 @@ internal class SampleOptionsBottomSheet : BottomSheetDialogFragment() {
     binding.multiTouch.toggle.isChecked = options.multiTouchEnabled
     binding.centerMoveEnabled.toggle.isChecked = options.centerMoveEnabled
     binding.cropOverlay.toggle.isChecked = options.showCropOverlay
+    binding.middleSegments.toggle.isChecked = options.showMiddleSegments
     binding.progressBar.toggle.isChecked = options.showProgressBar
     binding.flipHorizontal.toggle.isChecked = options.flipHorizontally
     binding.flipVertical.toggle.isChecked = options.flipVertically
@@ -203,6 +204,10 @@ internal class SampleOptionsBottomSheet : BottomSheetDialogFragment() {
 
     binding.cropOverlay.toggle.setOnCheckedChangeListener { _, isChecked ->
       options = options.copy(showCropOverlay = isChecked)
+    }
+
+    binding.middleSegments.toggle.setOnCheckedChangeListener { _, isChecked ->
+      options = options.copy(showMiddleSegments = isChecked)
     }
 
     binding.flipHorizontal.toggle.setOnCheckedChangeListener { _, isChecked ->

@@ -99,6 +99,18 @@ cropImageView.setImageUriAsync(uri)
 cropImageView.setImageBitmap(bitmap)
 ```
 
+- Customize rectangle frame style
+
+```kotlin
+cropImageView.setImageCropOptions(
+  CropImageOptions(
+    cropShape = CropImageView.CropShape.RECTANGLE,
+    showMiddleSegments = true,
+    borderCornerOffset = -6f, // Positive = inward, negative = outward.
+  )
+)
+```
+
 - Get cropped image
 
 ```kotlin

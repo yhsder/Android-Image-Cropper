@@ -60,6 +60,10 @@
           layout="@layout/switch_crop_overlay"
           />
       <include
+          android:id="@+id/middleSegments"
+          layout="@layout/switch_middle_segments"
+          />
+      <include
           android:id="@+id/flipHorizontal"
           layout="@layout/switch_flip_horizontal"
           />
