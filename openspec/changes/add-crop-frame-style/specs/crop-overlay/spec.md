@@ -29,13 +29,31 @@ The system SHALL disable middle-segment rendering unless `cropShape = RECTANGLE`
 - **WHEN** `cropShape` is `OVAL`, `RECTANGLE_VERTICAL_ONLY`, or `RECTANGLE_HORIZONTAL_ONLY`
 - **THEN** middle segments are not rendered
 
-### Requirement: New style MUST be opt-in to preserve backward compatibility
-The middle-segment style MUST be controlled by a new configuration switch, and its default value MUST keep existing visuals unchanged.
+### Requirement: Negative corner offset SHALL automatically preserve outward corner visibility
+When `borderCornerOffset < 0` and rectangle style conditions are met, the system SHALL automatically apply a visual gutter strategy so outward L corners remain visible instead of being clipped by the view edge.
+
+#### Scenario: Auto gutter is applied on negative offset
+- **WHEN** `borderCornerOffset < 0`, `cropShape = RECTANGLE`, and `cornerShape != OVAL`
+- **THEN** the rendering pipeline automatically reserves display space to keep outward corners visible
+
+#### Scenario: Auto gutter is not applied on non-negative offset
+- **WHEN** `borderCornerOffset >= 0`
+- **THEN** no extra visual gutter is applied by this rule
+
+#### Scenario: Auto gutter is not applied for non-target shape combinations
+- **WHEN** `cropShape` is not `RECTANGLE` or `cornerShape = OVAL`
+- **THEN** the negative-offset auto gutter rule does not apply
+
+### Requirement: Auto gutter MUST NOT require explicit user configuration
+The negative-offset visibility protection MUST be an internal automatic behavior and MUST NOT require callers to set an additional switch.
+
+#### Scenario: Automatic behavior without extra configuration
+- **WHEN** callers only configure `borderCornerOffset < 0` under valid rectangle conditions
+- **THEN** outward-corner visibility protection is active without additional API or XML flags
+
+### Requirement: Middle-segment style MUST remain opt-in for backward compatibility
+Middle-segment rendering capability MUST remain disabled by default to preserve legacy visuals unless explicitly enabled.
 
 #### Scenario: Default behavior remains unchanged
-- **WHEN** existing integrations do not set the new middle-segment switch
-- **THEN** crop frame rendering remains equivalent to pre-change behavior
-
-#### Scenario: Explicit enablement activates new style
-- **WHEN** the caller explicitly enables the middle-segment switch and uses `cropShape = RECTANGLE` with non-oval corner shape
-- **THEN** middle segments are rendered according to existing corner style parameters
+- **WHEN** existing integrations do not enable middle-segment style
+- **THEN** crop frame rendering remains equivalent to pre-middle-segment behavior

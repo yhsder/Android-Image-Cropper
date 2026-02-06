@@ -30,6 +30,7 @@ import com.canhub.cropper.CropOverlayView.CropWindowChangeListener
 import com.canhub.cropper.utils.getFilePathFromUri
 import java.lang.ref.WeakReference
 import java.util.UUID
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -214,7 +215,9 @@ class CropImageView @JvmOverloads constructor(
   var cropShape: CropShape?
     get() = mCropOverlayView!!.cropShape
     set(cropShape) {
-      mCropOverlayView!!.setCropShape(cropShape!!)
+      val previousVisualGutterInset = mCropOverlayView!!.autoVisualGutterInset
+      mCropOverlayView.setCropShape(cropShape!!)
+      applyImageMatrixIfVisualGutterChanged(previousVisualGutterInset)
     }
 
   /**
@@ -223,7 +226,9 @@ class CropImageView @JvmOverloads constructor(
   var cornerShape: CropCornerShape?
     get() = mCropOverlayView!!.cornerShape
     set(cornerShape) {
-      mCropOverlayView!!.setCropCornerShape(cornerShape!!)
+      val previousVisualGutterInset = mCropOverlayView!!.autoVisualGutterInset
+      mCropOverlayView.setCropCornerShape(cornerShape!!)
+      applyImageMatrixIfVisualGutterChanged(previousVisualGutterInset)
     }
 
   /** Set auto-zoom functionality to enabled/disabled. */
@@ -367,6 +372,7 @@ class CropImageView @JvmOverloads constructor(
   }
 
   fun setImageCropOptions(options: CropImageOptions) {
+    val previousVisualGutterInset = mCropOverlayView?.autoVisualGutterInset ?: 0f
     scaleType = options.scaleType
     customOutputUri = options.customOutputUri
     mCropOverlayView?.setInitialAttributeValues(options)
@@ -382,6 +388,7 @@ class CropImageView @JvmOverloads constructor(
     mShowCropOverlay = options.showCropOverlay
     mShowProgressBar = options.showProgressBar
     mProgressBar.indeterminateTintList = ColorStateList.valueOf(options.progressBarColor)
+    applyImageMatrixIfVisualGutterChanged(previousVisualGutterInset)
   }
 
   /** Clears set aspect ratio values and sets fixed aspect ratio to FALSE. */
@@ -554,25 +561,12 @@ class CropImageView @JvmOverloads constructor(
    */
   val cropPoints: FloatArray
     get() {
-      // Get crop window position relative to the displayed image.
-      val cropWindowRect = mCropOverlayView!!.cropWindowRect
-      val points = floatArrayOf(
-        cropWindowRect.left,
-        cropWindowRect.top,
-        cropWindowRect.right,
-        cropWindowRect.top,
-        cropWindowRect.right,
-        cropWindowRect.bottom,
-        cropWindowRect.left,
-        cropWindowRect.bottom,
+      return getCropPointsInSourceImage(
+        cropWindowRect = mCropOverlayView!!.cropWindowRect,
+        imageMatrix = mImageMatrix,
+        loadedSampleSize = loadedSampleSize,
+        inverseMatrix = mImageInverseMatrix,
       )
-      mImageMatrix.invert(mImageInverseMatrix)
-      mImageInverseMatrix.mapPoints(points)
-      val resultPoints = FloatArray(points.size)
-      for (i in points.indices) {
-        resultPoints[i] = points[i] * loadedSampleSize
-      }
-      return resultPoints
     }
 
   /** Reset crop window to initial rectangle. */
@@ -1299,9 +1293,17 @@ class CropImageView @JvmOverloads constructor(
     val width = width
     val height = height
     if (originalBitmap != null && width > 0 && height > 0) {
+      val contentRect = resolveImageContentRect(width.toFloat(), height.toFloat())
+      val contentWidth = contentRect.width()
+      val contentHeight = contentRect.height()
       val cropRect = mCropOverlayView!!.cropWindowRect
       if (inProgress) {
-        if (cropRect.left < 0 || cropRect.top < 0 || cropRect.right > width || cropRect.bottom > height) {
+        if (
+          cropRect.left < contentRect.left ||
+          cropRect.top < contentRect.top ||
+          cropRect.right > contentRect.right ||
+          cropRect.bottom > contentRect.bottom
+        ) {
           applyImageMatrix(
             width = width.toFloat(),
             height = height.toFloat(),
@@ -1312,21 +1314,28 @@ class CropImageView @JvmOverloads constructor(
       } else if (mAutoZoomEnabled || mZoom > 1) {
         var newZoom = 0f
         // keep the cropping window covered area to 50%-65% of zoomed sub-area
-        if (mZoom < mMaxZoom && cropRect.width() < width * 0.5f && cropRect.height() < height * 0.5f) {
+        if (
+          mZoom < mMaxZoom &&
+          cropRect.width() < contentWidth * 0.5f &&
+          cropRect.height() < contentHeight * 0.5f
+        ) {
           newZoom = min(
             mMaxZoom.toFloat(),
             min(
-              width / (cropRect.width() / mZoom / 0.64f),
-              height / (cropRect.height() / mZoom / 0.64f),
+              contentWidth / (cropRect.width() / mZoom / 0.64f),
+              contentHeight / (cropRect.height() / mZoom / 0.64f),
             ),
           )
         }
-        if (mZoom > 1 && (cropRect.width() > width * 0.65f || cropRect.height() > height * 0.65f)) {
+        if (
+          mZoom > 1 &&
+          (cropRect.width() > contentWidth * 0.65f || cropRect.height() > contentHeight * 0.65f)
+        ) {
           newZoom = max(
             1f,
             min(
-              width / (cropRect.width() / mZoom / 0.51f),
-              height / (cropRect.height() / mZoom / 0.51f),
+              contentWidth / (cropRect.width() / mZoom / 0.51f),
+              contentHeight / (cropRect.height() / mZoom / 0.51f),
             ),
           )
         }
@@ -1360,14 +1369,17 @@ class CropImageView @JvmOverloads constructor(
   private fun applyImageMatrix(width: Float, height: Float, center: Boolean, animate: Boolean) {
     val bitmap = originalBitmap
     if (bitmap != null && width > 0 && height > 0) {
+      val contentRect = resolveImageContentRect(width, height)
+      val contentWidth = contentRect.width()
+      val contentHeight = contentRect.height()
       mImageMatrix.invert(mImageInverseMatrix)
       val cropRect = mCropOverlayView!!.cropWindowRect
       mImageInverseMatrix.mapRect(cropRect)
       mImageMatrix.reset()
       // move the image to the center of the image view first, so we can manipulate it from there
       mImageMatrix.postTranslate(
-        (width - bitmap.width) / 2,
-        (height - bitmap.height) / 2,
+        contentRect.left + (contentWidth - bitmap.width) / 2f,
+        contentRect.top + (contentHeight - bitmap.height) / 2f,
       )
       mapImagePointsByImageMatrix()
       // rotate the image the required degrees from center of image
@@ -1381,8 +1393,8 @@ class CropImageView @JvmOverloads constructor(
       }
       // scale the image to the image view, image rect transformed to know new width/height
       val scale = min(
-        width / BitmapUtils.getRectWidth(mImagePoints),
-        height / BitmapUtils.getRectHeight(mImagePoints),
+        contentWidth / BitmapUtils.getRectWidth(mImagePoints),
+        contentHeight / BitmapUtils.getRectHeight(mImagePoints),
       )
       if (mScaleType == ScaleType.FIT_CENTER || mScaleType == ScaleType.CENTER_INSIDE && scale < 1 ||
         scale > 1 && mAutoZoomEnabled
@@ -1396,8 +1408,8 @@ class CropImageView @JvmOverloads constructor(
         mapImagePointsByImageMatrix()
       } else if (mScaleType == ScaleType.CENTER_CROP) {
         mZoom = max(
-          getWidth() / BitmapUtils.getRectWidth(mImagePoints),
-          getHeight() / BitmapUtils.getRectHeight(mImagePoints),
+          contentWidth / BitmapUtils.getRectWidth(mImagePoints),
+          contentHeight / BitmapUtils.getRectHeight(mImagePoints),
         )
       }
       // scale by the current zoom level
@@ -1418,28 +1430,28 @@ class CropImageView @JvmOverloads constructor(
       } else if (center) {
         // set the zoomed area to be as to the center of cropping window as possible
         mZoomOffsetX =
-          if (width > BitmapUtils.getRectWidth(mImagePoints)) {
+          if (contentWidth > BitmapUtils.getRectWidth(mImagePoints)) {
             0f
           } else {
             max(
               min(
-                width / 2 - cropRect.centerX(),
-                -BitmapUtils.getRectLeft(mImagePoints),
+                contentRect.centerX() - cropRect.centerX(),
+                contentRect.left - BitmapUtils.getRectLeft(mImagePoints),
               ),
-              getWidth() - BitmapUtils.getRectRight(mImagePoints),
+              contentRect.right - BitmapUtils.getRectRight(mImagePoints),
             ) / scaleX
           }
 
         mZoomOffsetY =
-          if (height > BitmapUtils.getRectHeight(mImagePoints)) {
+          if (contentHeight > BitmapUtils.getRectHeight(mImagePoints)) {
             0f
           } else {
             max(
               min(
-                height / 2 - cropRect.centerY(),
-                -BitmapUtils.getRectTop(mImagePoints),
+                contentRect.centerY() - cropRect.centerY(),
+                contentRect.top - BitmapUtils.getRectTop(mImagePoints),
               ),
-              getHeight() - BitmapUtils.getRectBottom(mImagePoints),
+              contentRect.bottom - BitmapUtils.getRectBottom(mImagePoints),
             ) / scaleY
           }
       } else {
@@ -1447,15 +1459,15 @@ class CropImageView @JvmOverloads constructor(
         // was moved outside
         mZoomOffsetX = (
           min(
-            max(mZoomOffsetX * scaleX, -cropRect.left),
-            -cropRect.right + width,
+            max(mZoomOffsetX * scaleX, contentRect.left - cropRect.left),
+            contentRect.right - cropRect.right,
           ) / scaleX
           )
 
         mZoomOffsetY = (
           min(
-            max(mZoomOffsetY * scaleY, -cropRect.top),
-            -cropRect.bottom + height,
+            max(mZoomOffsetY * scaleY, contentRect.top - cropRect.top),
+            contentRect.bottom - cropRect.bottom,
           ) / scaleY
           )
       }
@@ -1476,6 +1488,24 @@ class CropImageView @JvmOverloads constructor(
       // update the image rectangle in the crop overlay
       updateImageBounds(false)
     }
+  }
+
+  private fun resolveImageContentRect(width: Float, height: Float): RectF {
+    val visualGutterInset = mCropOverlayView?.autoVisualGutterInset ?: 0f
+    return calculateImageContentRect(width, height, visualGutterInset)
+  }
+
+  private fun applyImageMatrixIfVisualGutterChanged(previousVisualGutterInset: Float) {
+    val cropOverlayView = mCropOverlayView ?: return
+    if (abs(cropOverlayView.autoVisualGutterInset - previousVisualGutterInset) <= VISUAL_GUTTER_EPSILON_PX) {
+      return
+    }
+    applyImageMatrix(
+      width = width.toFloat(),
+      height = height.toFloat(),
+      center = false,
+      animate = false,
+    )
   }
 
   /**
@@ -1774,6 +1804,9 @@ class CropImageView @JvmOverloads constructor(
   }
 
   internal companion object {
+    private const val VISUAL_GUTTER_EPSILON_PX = 0.01f
+    private const val MIN_CONTENT_SIZE_PX = 2f
+
     /**
      * Determines the specs for the onMeasure function. Calculates the width or height depending on
      * the mode.
@@ -1797,6 +1830,50 @@ class CropImageView @JvmOverloads constructor(
         ) // Can't be bigger than...; match_parent value
         else -> desiredSize // Be whatever you want; wrap_content
       }
+    }
+
+    internal fun calculateImageContentRect(
+      width: Float,
+      height: Float,
+      visualGutterInset: Float,
+    ): RectF {
+      if (width <= 0f || height <= 0f) {
+        return RectF(0f, 0f, max(0f, width), max(0f, height))
+      }
+
+      val maxInset = max(0f, (min(width, height) - MIN_CONTENT_SIZE_PX) / 2f)
+      val inset = visualGutterInset.coerceIn(0f, maxInset)
+      return RectF(
+        inset,
+        inset,
+        width - inset,
+        height - inset,
+      )
+    }
+
+    internal fun getCropPointsInSourceImage(
+      cropWindowRect: RectF,
+      imageMatrix: Matrix,
+      loadedSampleSize: Int,
+      inverseMatrix: Matrix = Matrix(),
+    ): FloatArray {
+      val points = floatArrayOf(
+        cropWindowRect.left,
+        cropWindowRect.top,
+        cropWindowRect.right,
+        cropWindowRect.top,
+        cropWindowRect.right,
+        cropWindowRect.bottom,
+        cropWindowRect.left,
+        cropWindowRect.bottom,
+      )
+      imageMatrix.invert(inverseMatrix)
+      inverseMatrix.mapPoints(points)
+      val resultPoints = FloatArray(points.size)
+      for (i in points.indices) {
+        resultPoints[i] = points[i] * loadedSampleSize
+      }
+      return resultPoints
     }
   }
 

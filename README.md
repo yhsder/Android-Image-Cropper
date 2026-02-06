@@ -111,6 +111,10 @@ cropImageView.setImageCropOptions(
 )
 ```
 
+When `borderCornerOffset < 0` with `cropShape = RECTANGLE` and `cornerShape != OVAL`,
+the library automatically applies a visual gutter so outward `L` corners stay visible
+without any extra configuration flag.
+
 - Get cropped image
 
 ```kotlin

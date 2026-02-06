@@ -88,6 +88,32 @@ internal class CropOverlayView @JvmOverloads constructor(
       cropShape == CropShape.RECTANGLE &&
       cornerShape != CropImageView.CropCornerShape.OVAL
 
+    private const val AUTO_VISUAL_GUTTER_SAFETY_PX = 1f
+
+    internal fun shouldApplyAutoVisualGutter(
+      borderCornerOffset: Float,
+      cropShape: CropShape?,
+      cornerShape: CropImageView.CropCornerShape?,
+    ) = borderCornerOffset < 0f &&
+      cropShape == CropShape.RECTANGLE &&
+      cornerShape != CropImageView.CropCornerShape.OVAL
+
+    internal fun getAutoVisualGutterInset(
+      borderCornerOffset: Float,
+      cropShape: CropShape?,
+      cornerShape: CropImageView.CropCornerShape?,
+      borderLineWidth: Float,
+      cornerLineWidth: Float,
+    ): Float {
+      if (!shouldApplyAutoVisualGutter(borderCornerOffset, cropShape, cornerShape)) {
+        return 0f
+      }
+
+      val cornerOffset = (cornerLineWidth - borderLineWidth) / 2f
+      val requiredInset = max(0f, cornerOffset - borderCornerOffset)
+      return if (requiredInset > 0f) requiredInset + AUTO_VISUAL_GUTTER_SAFETY_PX else 0f
+    }
+
     internal fun getMiddleSegmentLines(
       cropWindowRect: RectF,
       borderLineWidth: Float,
@@ -279,6 +305,19 @@ internal class CropOverlayView @JvmOverloads constructor(
     get() = mCropWindowHandler.getRect()
     set(rect) {
       mCropWindowHandler.setRect(rect)
+    }
+
+  internal val autoVisualGutterInset: Float
+    get() {
+      val cornerPaint = mBorderCornerPaint ?: return 0f
+      if (mBorderCornerLength <= 0f) return 0f
+      return getAutoVisualGutterInset(
+        borderCornerOffset = mBorderCornerOffset,
+        cropShape = cropShape,
+        cornerShape = cornerShape,
+        borderLineWidth = mBorderPaint?.strokeWidth ?: 0f,
+        cornerLineWidth = cornerPaint.strokeWidth,
+      )
     }
 
   /** Fix the current crop window rectangle if it is outside of cropping image or view bounds. */

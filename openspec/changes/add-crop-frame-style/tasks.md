@@ -22,3 +22,11 @@
 
 - [x] 4.1 更新 README 或开发说明，明确中点短线能力与 `borderCornerOffset` 符号语义。
 - [x] 4.2 运行格式检查与测试命令，确认改动可合入。
+
+## 5. 负偏移自动可见性保护（visual gutter）
+
+- [x] 5.1 在 `CropImageView` 设计并实现负偏移自动触发的 visual gutter 计算与触发条件（`borderCornerOffset < 0`、`RECTANGLE`、`cornerShape != OVAL`）。
+- [x] 5.2 将 visual gutter 应用于图片显示区域与矩阵边界计算，确保外扩 L 角可见且不引入新的显式配置项。
+- [x] 5.3 验证自动 gutter 不改变裁剪结果语义（`cropPoints`/`cropRect` 坐标一致性）。
+- [x] 5.4 增加/更新测试覆盖自动 gutter 触发、非触发与边界场景（含贴边与极端负偏移）。
+- [x] 5.5 更新 sample/README，说明“负偏移自动保护”行为与适用条件。

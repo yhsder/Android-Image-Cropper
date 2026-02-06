@@ -102,4 +102,83 @@ class CropOverlayViewTest {
     assertEquals(20f, zeroOffsetLines[0].endX - zeroOffsetLines[0].startX, 0.001f)
     assertEquals(20f, zeroOffsetLines[2].endY - zeroOffsetLines[2].startY, 0.001f)
   }
+
+  @Test
+  fun `WHEN auto gutter condition is checked THEN it should only trigger for negative rectangle offset`() {
+    assertTrue(
+      CropOverlayView.shouldApplyAutoVisualGutter(
+        borderCornerOffset = -1f,
+        cropShape = CropShape.RECTANGLE,
+        cornerShape = CropCornerShape.RECTANGLE,
+      ),
+    )
+    assertFalse(
+      CropOverlayView.shouldApplyAutoVisualGutter(
+        borderCornerOffset = 0f,
+        cropShape = CropShape.RECTANGLE,
+        cornerShape = CropCornerShape.RECTANGLE,
+      ),
+    )
+    assertFalse(
+      CropOverlayView.shouldApplyAutoVisualGutter(
+        borderCornerOffset = -1f,
+        cropShape = CropShape.OVAL,
+        cornerShape = CropCornerShape.RECTANGLE,
+      ),
+    )
+    assertFalse(
+      CropOverlayView.shouldApplyAutoVisualGutter(
+        borderCornerOffset = -1f,
+        cropShape = CropShape.RECTANGLE,
+        cornerShape = CropCornerShape.OVAL,
+      ),
+    )
+  }
+
+  @Test
+  fun `WHEN auto gutter is computed THEN it should grow with larger negative offset`() {
+    val regularInset = CropOverlayView.getAutoVisualGutterInset(
+      borderCornerOffset = -4f,
+      cropShape = CropShape.RECTANGLE,
+      cornerShape = CropCornerShape.RECTANGLE,
+      borderLineWidth = 2f,
+      cornerLineWidth = 6f,
+    )
+    val extremeInset = CropOverlayView.getAutoVisualGutterInset(
+      borderCornerOffset = -40f,
+      cropShape = CropShape.RECTANGLE,
+      cornerShape = CropCornerShape.RECTANGLE,
+      borderLineWidth = 2f,
+      cornerLineWidth = 6f,
+    )
+
+    assertTrue(regularInset > 0f)
+    assertTrue(extremeInset > regularInset)
+  }
+
+  @Test
+  fun `WHEN auto gutter condition is not met THEN inset should be zero`() {
+    assertEquals(
+      0f,
+      CropOverlayView.getAutoVisualGutterInset(
+        borderCornerOffset = 3f,
+        cropShape = CropShape.RECTANGLE,
+        cornerShape = CropCornerShape.RECTANGLE,
+        borderLineWidth = 2f,
+        cornerLineWidth = 6f,
+      ),
+      0.001f,
+    )
+    assertEquals(
+      0f,
+      CropOverlayView.getAutoVisualGutterInset(
+        borderCornerOffset = -3f,
+        cropShape = CropShape.RECTANGLE,
+        cornerShape = CropCornerShape.OVAL,
+        borderLineWidth = 2f,
+        cornerLineWidth = 6f,
+      ),
+      0.001f,
+    )
+  }
 }
