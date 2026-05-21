@@ -4,12 +4,6 @@ plugins {
   id("org.jetbrains.kotlin.plugin.parcelize")
 }
 
-kotlin {
-  jvmToolchain {
-    languageVersion.set(JavaLanguageVersion.of(21))
-  }
-}
-
 android {
   namespace = "com.example.croppersample"
 
@@ -29,8 +23,12 @@ android {
   }
 
   compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = JavaVersion.VERSION_17.toString()
   }
 
   buildTypes {
