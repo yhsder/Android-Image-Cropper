@@ -33,9 +33,15 @@
     <attr name="cropBorderLineThickness" format="dimension"/>
     <attr name="cropBorderLineColor" format="color"/>
     <attr name="cropBorderCornerThickness" format="dimension"/>
-    <attr name="cropBorderCornerOffset" format="dimension"/>
     <attr name="cropBorderCornerLength" format="dimension"/>
     <attr name="cropBorderCornerColor" format="color"/>
+    <attr name="cropFrameAccentThickness" format="dimension"/>
+    <attr name="cropFrameAccentColor" format="color"/>
+    <attr name="cropFrameCornerLength" format="dimension"/>
+    <attr name="cropFrameCenterLineLengthFraction" format="float"/>
+    <attr name="cropFrameCenterLineMinLength" format="dimension"/>
+    <attr name="cropFrameCenterLineMaxLength" format="dimension"/>
+    <attr name="cropFrameSafeInset" format="dimension"/>
     <attr name="cropGuidelinesThickness" format="dimension"/>
     <attr name="cropGuidelinesColor" format="color"/>
     <attr name="cropBackgroundColor" format="color"/>
@@ -53,7 +59,6 @@
     <attr name="cropFlipHorizontally" format="boolean"/>
     <attr name="cropFlipVertically" format="boolean"/>
     <attr name="cropCornerCircleFillColor" format="color"/>
-    <attr name="cropCornerRadius" format="dimension"/>
     <attr name="cropperLabelTextSize" format="float"/>
     <attr name="cropperLabelTextColor" format="color"/>
     <attr name="cropperLabelText" format="string"/>

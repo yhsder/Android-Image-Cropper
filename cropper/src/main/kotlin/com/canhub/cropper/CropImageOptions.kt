@@ -20,7 +20,6 @@ import kotlinx.parcelize.Parcelize
   @JvmField var imageSourceIncludeCamera: Boolean = true,
   @JvmField var cropShape: CropShape = CropShape.RECTANGLE,
   @JvmField var cornerShape: CropImageView.CropCornerShape = CropImageView.CropCornerShape.RECTANGLE,
-  @JvmField @Px var cropCornerRadius: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10f, Resources.getSystem().displayMetrics),
   /**
    * An edge of the crop window will snap to the corresponding edge of a specified bounding box when
    * the crop window edge is less than or equal to this distance away from the bounding
@@ -29,7 +28,7 @@ import kotlinx.parcelize.Parcelize
   @JvmField @Px var snapRadius: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 3f, Resources.getSystem().displayMetrics),
   /** The radius of the touchable area around the handle. */
   @JvmField @Px var touchRadius: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 24f, Resources.getSystem().displayMetrics),
-  @JvmField var guidelines: Guidelines = Guidelines.ON,
+  @JvmField var guidelines: Guidelines = Guidelines.OFF,
   @JvmField var scaleType: CropImageView.ScaleType = CropImageView.ScaleType.FIT_CENTER,
   @JvmField var showCropOverlay: Boolean = true,
   @JvmField var showCropLabel: Boolean = false,
@@ -48,16 +47,22 @@ import kotlinx.parcelize.Parcelize
   @JvmField var fixAspectRatio: Boolean = false,
   @JvmField var aspectRatioX: Int = 1,
   @JvmField var aspectRatioY: Int = 1,
-  @JvmField @Px var borderLineThickness: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 3f, Resources.getSystem().displayMetrics),
-  @JvmField @ColorInt var borderLineColor: Int = Color.argb(170, 255, 255, 255),
+  @JvmField @Px var borderLineThickness: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1f, Resources.getSystem().displayMetrics),
+  @JvmField @ColorInt var borderLineColor: Int = Color.argb(255, 235, 244, 255),
   @JvmField @Px var borderCornerThickness: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2f, Resources.getSystem().displayMetrics),
-  @JvmField @Px var borderCornerOffset: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 5f, Resources.getSystem().displayMetrics),
   @JvmField @Px var borderCornerLength: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 14f, Resources.getSystem().displayMetrics),
   @JvmField @ColorInt var borderCornerColor: Int = Color.WHITE,
+  @JvmField @Px var frameAccentThickness: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 3f, Resources.getSystem().displayMetrics),
+  @JvmField @ColorInt var frameAccentColor: Int = Color.argb(255, 235, 244, 255),
+  @JvmField @Px var frameCornerLength: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20f, Resources.getSystem().displayMetrics),
+  @JvmField var frameCenterLineLengthFraction: Float = 0.18f,
+  @JvmField @Px var frameCenterLineMinLength: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10f, Resources.getSystem().displayMetrics),
+  @JvmField @Px var frameCenterLineMaxLength: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 28f, Resources.getSystem().displayMetrics),
+  @JvmField @Px var frameSafeInset: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16f, Resources.getSystem().displayMetrics),
   @JvmField @ColorInt var circleCornerFillColorHexValue: Int = Color.WHITE,
   @JvmField @Px var guidelinesThickness: Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1f, Resources.getSystem().displayMetrics),
   @JvmField @ColorInt var guidelinesColor: Int = Color.argb(170, 255, 255, 255),
-  @JvmField @ColorInt var backgroundColor: Int = Color.argb(119, 0, 0, 0),
+  @JvmField @ColorInt var backgroundColor: Int = Color.argb(200, 0, 0, 0),
   @JvmField @Px var minCropWindowWidth: Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 42f, Resources.getSystem().displayMetrics).toInt(),
   @JvmField @Px var minCropWindowHeight: Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 42f, Resources.getSystem().displayMetrics).toInt(),
   @JvmField @Px var minCropResultWidth: Int = 40,
@@ -106,6 +111,36 @@ import kotlinx.parcelize.Parcelize
   @JvmField @ColorInt var toolbarBackButtonColor: Int? = null,
   @JvmField @ColorInt var toolbarTintColor: Int? = null,
 ) : Parcelable {
+  companion object {
+    /** Creates a document-style crop frame configuration using the library defaults. */
+    @JvmStatic
+    fun defaultDocumentStyleOptions(
+      @ColorInt frameColor: Int = Color.argb(255, 235, 244, 255),
+      @ColorInt overlayColor: Int = Color.argb(200, 0, 0, 0),
+    ): CropImageOptions =
+      CropImageOptions(
+        guidelines = Guidelines.OFF,
+        autoZoomEnabled = true,
+        borderLineThickness = dp(1f),
+        borderLineColor = frameColor,
+        frameAccentThickness = dp(3f),
+        frameAccentColor = frameColor,
+        frameCornerLength = dp(20f),
+        frameCenterLineLengthFraction = 0.18f,
+        frameCenterLineMinLength = dp(10f),
+        frameCenterLineMaxLength = dp(28f),
+        frameSafeInset = dp(16f),
+        backgroundColor = overlayColor,
+      )
+
+    private fun dp(value: Float) =
+      TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_DIP,
+        value,
+        Resources.getSystem().displayMetrics,
+      )
+  }
+
   init {
     require(maxZoom >= 0) { "Cannot set max zoom to a number < 1" }
     require(touchRadius >= 0) { "Cannot set touch radius value to a number <= 0 " }
@@ -114,6 +149,12 @@ import kotlinx.parcelize.Parcelize
     require(aspectRatioY > 0) { "Cannot set aspect ratio value to a number less than or equal to 0." }
     require(borderLineThickness >= 0) { "Cannot set line thickness value to a number less than 0." }
     require(borderCornerThickness >= 0) { "Cannot set corner thickness value to a number less than 0." }
+    require(frameAccentThickness >= 0) { "Cannot set frame accent thickness value to a number less than 0." }
+    require(frameCornerLength >= 0) { "Cannot set frame corner length value to a number less than 0." }
+    require(frameCenterLineLengthFraction >= 0) { "Cannot set frame center line fraction value to a number less than 0." }
+    require(frameCenterLineMinLength >= 0) { "Cannot set frame center line minimum length value to a number less than 0." }
+    require(frameCenterLineMaxLength >= frameCenterLineMinLength) { "Cannot set frame center line max length smaller than min length." }
+    require(frameSafeInset >= 0) { "Cannot set frame safe inset value to a number less than 0." }
     require(guidelinesThickness >= 0) { "Cannot set guidelines thickness value to a number less than 0." }
     require(minCropWindowHeight >= 0) { "Cannot set min crop window height value to a number < 0 " }
     require(minCropResultWidth >= 0) { "Cannot set min crop result width value to a number < 0 " }

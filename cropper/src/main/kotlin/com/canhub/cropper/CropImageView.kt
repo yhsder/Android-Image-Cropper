@@ -139,6 +139,9 @@ class CropImageView @JvmOverloads constructor(
   /** The max zoom allowed during cropping  */
   private var mMaxZoom: Int
 
+  /** The safe inset reserved for outer frame decorations. */
+  private var mFrameSafeInset = 0f
+
   /** Callback to be invoked when crop overlay is released. */
   private var mOnCropOverlayReleasedListener: OnSetCropOverlayReleasedListener? = null
 
@@ -367,8 +370,10 @@ class CropImageView @JvmOverloads constructor(
   }
 
   fun setImageCropOptions(options: CropImageOptions) {
+    val layoutFrameChanged = mFrameSafeInset != options.frameSafeInset
     scaleType = options.scaleType
     customOutputUri = options.customOutputUri
+    mFrameSafeInset = options.frameSafeInset
     mCropOverlayView?.setInitialAttributeValues(options)
     setMultiTouchEnabled(options.multiTouchEnabled)
     setCenterMoveEnabled(options.centerMoveEnabled)
@@ -382,6 +387,14 @@ class CropImageView @JvmOverloads constructor(
     mShowCropOverlay = options.showCropOverlay
     mShowProgressBar = options.showProgressBar
     mProgressBar.indeterminateTintList = ColorStateList.valueOf(options.progressBarColor)
+    if (layoutFrameChanged && originalBitmap != null) {
+      applyImageMatrix(
+        width = width.toFloat(),
+        height = height.toFloat(),
+        center = true,
+        animate = false,
+      )
+    }
   }
 
   /** Clears set aspect ratio values and sets fixed aspect ratio to FALSE. */
@@ -1299,9 +1312,14 @@ class CropImageView @JvmOverloads constructor(
     val width = width
     val height = height
     if (originalBitmap != null && width > 0 && height > 0) {
+      val contentBounds = getContentBounds(width.toFloat(), height.toFloat())
       val cropRect = mCropOverlayView!!.cropWindowRect
       if (inProgress) {
-        if (cropRect.left < 0 || cropRect.top < 0 || cropRect.right > width || cropRect.bottom > height) {
+        if (cropRect.left < contentBounds.left ||
+          cropRect.top < contentBounds.top ||
+          cropRect.right > contentBounds.right ||
+          cropRect.bottom > contentBounds.bottom
+        ) {
           applyImageMatrix(
             width = width.toFloat(),
             height = height.toFloat(),
@@ -1312,21 +1330,27 @@ class CropImageView @JvmOverloads constructor(
       } else if (mAutoZoomEnabled || mZoom > 1) {
         var newZoom = 0f
         // keep the cropping window covered area to 50%-65% of zoomed sub-area
-        if (mZoom < mMaxZoom && cropRect.width() < width * 0.5f && cropRect.height() < height * 0.5f) {
+        if (mZoom < mMaxZoom &&
+          cropRect.width() < contentBounds.width() * 0.5f &&
+          cropRect.height() < contentBounds.height() * 0.5f
+        ) {
           newZoom = min(
             mMaxZoom.toFloat(),
             min(
-              width / (cropRect.width() / mZoom / 0.64f),
-              height / (cropRect.height() / mZoom / 0.64f),
+              contentBounds.width() / (cropRect.width() / mZoom / 0.64f),
+              contentBounds.height() / (cropRect.height() / mZoom / 0.64f),
             ),
           )
         }
-        if (mZoom > 1 && (cropRect.width() > width * 0.65f || cropRect.height() > height * 0.65f)) {
+        if (mZoom > 1 &&
+          (cropRect.width() > contentBounds.width() * 0.65f ||
+            cropRect.height() > contentBounds.height() * 0.65f)
+        ) {
           newZoom = max(
             1f,
             min(
-              width / (cropRect.width() / mZoom / 0.51f),
-              height / (cropRect.height() / mZoom / 0.51f),
+              contentBounds.width() / (cropRect.width() / mZoom / 0.51f),
+              contentBounds.height() / (cropRect.height() / mZoom / 0.51f),
             ),
           )
         }
@@ -1360,14 +1384,15 @@ class CropImageView @JvmOverloads constructor(
   private fun applyImageMatrix(width: Float, height: Float, center: Boolean, animate: Boolean) {
     val bitmap = originalBitmap
     if (bitmap != null && width > 0 && height > 0) {
+      val contentBounds = getContentBounds(width, height)
       mImageMatrix.invert(mImageInverseMatrix)
       val cropRect = mCropOverlayView!!.cropWindowRect
       mImageInverseMatrix.mapRect(cropRect)
       mImageMatrix.reset()
-      // move the image to the center of the image view first, so we can manipulate it from there
+      // Move the image to the center of the drawable content area first.
       mImageMatrix.postTranslate(
-        (width - bitmap.width) / 2,
-        (height - bitmap.height) / 2,
+        contentBounds.left + (contentBounds.width() - bitmap.width) / 2,
+        contentBounds.top + (contentBounds.height() - bitmap.height) / 2,
       )
       mapImagePointsByImageMatrix()
       // rotate the image the required degrees from center of image
@@ -1381,8 +1406,8 @@ class CropImageView @JvmOverloads constructor(
       }
       // scale the image to the image view, image rect transformed to know new width/height
       val scale = min(
-        width / BitmapUtils.getRectWidth(mImagePoints),
-        height / BitmapUtils.getRectHeight(mImagePoints),
+        contentBounds.width() / BitmapUtils.getRectWidth(mImagePoints),
+        contentBounds.height() / BitmapUtils.getRectHeight(mImagePoints),
       )
       if (mScaleType == ScaleType.FIT_CENTER || mScaleType == ScaleType.CENTER_INSIDE && scale < 1 ||
         scale > 1 && mAutoZoomEnabled
@@ -1396,8 +1421,8 @@ class CropImageView @JvmOverloads constructor(
         mapImagePointsByImageMatrix()
       } else if (mScaleType == ScaleType.CENTER_CROP) {
         mZoom = max(
-          getWidth() / BitmapUtils.getRectWidth(mImagePoints),
-          getHeight() / BitmapUtils.getRectHeight(mImagePoints),
+          contentBounds.width() / BitmapUtils.getRectWidth(mImagePoints),
+          contentBounds.height() / BitmapUtils.getRectHeight(mImagePoints),
         )
       }
       // scale by the current zoom level
@@ -1418,28 +1443,28 @@ class CropImageView @JvmOverloads constructor(
       } else if (center) {
         // set the zoomed area to be as to the center of cropping window as possible
         mZoomOffsetX =
-          if (width > BitmapUtils.getRectWidth(mImagePoints)) {
+          if (contentBounds.width() > BitmapUtils.getRectWidth(mImagePoints)) {
             0f
           } else {
             max(
               min(
-                width / 2 - cropRect.centerX(),
-                -BitmapUtils.getRectLeft(mImagePoints),
+                contentBounds.centerX() - cropRect.centerX(),
+                contentBounds.left - BitmapUtils.getRectLeft(mImagePoints),
               ),
-              getWidth() - BitmapUtils.getRectRight(mImagePoints),
+              contentBounds.right - BitmapUtils.getRectRight(mImagePoints),
             ) / scaleX
           }
 
         mZoomOffsetY =
-          if (height > BitmapUtils.getRectHeight(mImagePoints)) {
+          if (contentBounds.height() > BitmapUtils.getRectHeight(mImagePoints)) {
             0f
           } else {
             max(
               min(
-                height / 2 - cropRect.centerY(),
-                -BitmapUtils.getRectTop(mImagePoints),
+                contentBounds.centerY() - cropRect.centerY(),
+                contentBounds.top - BitmapUtils.getRectTop(mImagePoints),
               ),
-              getHeight() - BitmapUtils.getRectBottom(mImagePoints),
+              contentBounds.bottom - BitmapUtils.getRectBottom(mImagePoints),
             ) / scaleY
           }
       } else {
@@ -1447,15 +1472,15 @@ class CropImageView @JvmOverloads constructor(
         // was moved outside
         mZoomOffsetX = (
           min(
-            max(mZoomOffsetX * scaleX, -cropRect.left),
-            -cropRect.right + width,
+            max(mZoomOffsetX * scaleX, contentBounds.left - cropRect.left),
+            contentBounds.right - cropRect.right,
           ) / scaleX
           )
 
         mZoomOffsetY = (
           min(
-            max(mZoomOffsetY * scaleY, -cropRect.top),
-            -cropRect.bottom + height,
+            max(mZoomOffsetY * scaleY, contentBounds.top - cropRect.top),
+            contentBounds.bottom - cropRect.bottom,
           ) / scaleY
           )
       }
@@ -1547,6 +1572,14 @@ class CropImageView @JvmOverloads constructor(
     }
     // set the bitmap rectangle and update the crop window after scale factor is set
     mCropOverlayView!!.setBounds(if (clear) null else mImagePoints, width, height)
+  }
+
+  private fun getContentBounds(width: Float, height: Float): RectF {
+    if (mCropOverlayView?.cropShape == CropShape.OVAL) {
+      return RectF(0f, 0f, width, height)
+    }
+    val safeInset = min(mFrameSafeInset, min(width, height) / 2f)
+    return RectF(safeInset, safeInset, width - safeInset, height - safeInset)
   }
 
   /**
@@ -1819,7 +1852,6 @@ class CropImageView @JvmOverloads constructor(
             autoZoomEnabled = a.getBoolean(R.styleable.CropImageView_cropAutoZoomEnabled, default.autoZoomEnabled),
             multiTouchEnabled = a.getBoolean(R.styleable.CropImageView_cropMultiTouchEnabled, default.multiTouchEnabled),
             centerMoveEnabled = a.getBoolean(R.styleable.CropImageView_cropCenterMoveEnabled, default.centerMoveEnabled),
-            cropCornerRadius = a.getDimension(R.styleable.CropImageView_cropCornerRadius, default.cropCornerRadius),
             snapRadius = a.getDimension(R.styleable.CropImageView_cropSnapRadius, default.snapRadius),
             touchRadius = a.getDimension(R.styleable.CropImageView_cropTouchRadius, default.touchRadius),
             initialCropWindowPaddingRatio = a.getFloat(R.styleable.CropImageView_cropInitialCropWindowPaddingRatio, default.initialCropWindowPaddingRatio),
@@ -1827,9 +1859,15 @@ class CropImageView @JvmOverloads constructor(
             borderLineThickness = a.getDimension(R.styleable.CropImageView_cropBorderLineThickness, default.borderLineThickness),
             borderLineColor = a.getInteger(R.styleable.CropImageView_cropBorderLineColor, default.borderLineColor),
             borderCornerThickness = a.getDimension(R.styleable.CropImageView_cropBorderCornerThickness, default.borderCornerThickness),
-            borderCornerOffset = a.getDimension(R.styleable.CropImageView_cropBorderCornerOffset, default.borderCornerOffset),
             borderCornerLength = a.getDimension(R.styleable.CropImageView_cropBorderCornerLength, default.borderCornerLength),
             borderCornerColor = a.getInteger(R.styleable.CropImageView_cropBorderCornerColor, default.borderCornerColor),
+            frameAccentThickness = a.getDimension(R.styleable.CropImageView_cropFrameAccentThickness, default.frameAccentThickness),
+            frameAccentColor = a.getInteger(R.styleable.CropImageView_cropFrameAccentColor, default.frameAccentColor),
+            frameCornerLength = a.getDimension(R.styleable.CropImageView_cropFrameCornerLength, default.frameCornerLength),
+            frameCenterLineLengthFraction = a.getFloat(R.styleable.CropImageView_cropFrameCenterLineLengthFraction, default.frameCenterLineLengthFraction),
+            frameCenterLineMinLength = a.getDimension(R.styleable.CropImageView_cropFrameCenterLineMinLength, default.frameCenterLineMinLength),
+            frameCenterLineMaxLength = a.getDimension(R.styleable.CropImageView_cropFrameCenterLineMaxLength, default.frameCenterLineMaxLength),
+            frameSafeInset = a.getDimension(R.styleable.CropImageView_cropFrameSafeInset, default.frameSafeInset),
             guidelinesThickness = a.getDimension(R.styleable.CropImageView_cropGuidelinesThickness, default.guidelinesThickness),
             guidelinesColor = a.getInteger(R.styleable.CropImageView_cropGuidelinesColor, default.guidelinesColor),
             backgroundColor = a.getInteger(R.styleable.CropImageView_cropBackgroundColor, default.backgroundColor),
@@ -1864,6 +1902,7 @@ class CropImageView @JvmOverloads constructor(
     mShowCropLabel = options.showCropLabel
     mShowCropOverlay = options.showCropOverlay
     mShowProgressBar = options.showProgressBar
+    mFrameSafeInset = options.frameSafeInset
     mFlipHorizontally = options.flipHorizontally
     mFlipVertically = options.flipVertically
     val inflater = LayoutInflater.from(context)

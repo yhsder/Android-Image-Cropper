@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
         cropImage.launch(
             CropImageContractOptions(
                 cropImageOptions = CropImageOptions(
-                    guidelines = Guidelines.ON
+                    cropShape = CropImageView.CropShape.RECTANGLE
                 )
             )
         )
@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
             CropImageContractOptions(
                 uri = imageUri,
                 cropImageOptions = CropImageOptions(
-                    guidelines = Guidelines.ON,
+                    cropShape = CropImageView.CropShape.RECTANGLE_HORIZONTAL_ONLY,
                     outputCompressFormat = Bitmap.CompressFormat.PNG
                 )
             )
@@ -105,6 +105,39 @@ cropImageView.getCroppedImageAsync()
 // Or.
 val cropped: Bitmap = cropImageView.getCroppedImage()
 ```
+
+- Customize the crop frame
+
+The library now uses a document-style crop frame for rectangular crop shapes by default:
+
+- `CropShape.RECTANGLE` draws the full frame with 4 corner marks and 4 center segments.
+- `CropShape.RECTANGLE_VERTICAL_ONLY` keeps the same corner marks and only draws top/bottom center segments.
+- `CropShape.RECTANGLE_HORIZONTAL_ONLY` keeps the same corner marks and only draws left/right center segments.
+- Rectangular crop shapes reserve a safe inset so the outer decorations stay visible when the crop
+  window gets close to the screen edge.
+
+```kotlin
+cropImageView.setImageCropOptions(
+    CropImageOptions.defaultDocumentStyleOptions().copy(
+        cropShape = CropImageView.CropShape.RECTANGLE,
+        aspectRatioX = 4,
+        aspectRatioY = 3,
+        fixAspectRatio = true,
+    )
+)
+```
+
+If you want to tweak the frame, these options are available on `CropImageOptions`:
+
+- `frameAccentThickness`
+- `frameAccentColor`
+- `frameCornerLength`
+- `frameCenterLineLengthFraction`
+- `frameCenterLineMinLength`
+- `frameCenterLineMaxLength`
+- `frameSafeInset`
+- `borderLineThickness`
+- `borderLineColor`
 
 ### [3. Extend to make a custom activity](./sample/src/main/kotlin/com/canhub/cropper/sample/SampleCustomActivity.kt)
 

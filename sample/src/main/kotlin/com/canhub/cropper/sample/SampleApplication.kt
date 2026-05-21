@@ -20,7 +20,6 @@ class SampleApplication : Application() {
     StrictMode.setVmPolicy(
       StrictMode.VmPolicy.Builder()
         .detectAll()
-        .penaltyDeath()
         .penaltyLog()
         .build(),
     )

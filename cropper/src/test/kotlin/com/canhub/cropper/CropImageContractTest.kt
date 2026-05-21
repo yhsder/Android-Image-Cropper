@@ -139,9 +139,15 @@ class CropImageContractTest {
         borderLineThickness = 3f,
         borderLineColor = Color.GREEN,
         borderCornerThickness = 5f,
-        borderCornerOffset = 6f,
         borderCornerLength = 7f,
         borderCornerColor = Color.MAGENTA,
+        frameAccentThickness = 9f,
+        frameAccentColor = Color.CYAN,
+        frameCornerLength = 11f,
+        frameCenterLineLengthFraction = 0.25f,
+        frameCenterLineMinLength = 12f,
+        frameCenterLineMaxLength = 30f,
+        frameSafeInset = 14f,
         guidelinesThickness = 8f,
         guidelinesColor = Color.RED,
         backgroundColor = Color.BLUE,
@@ -188,9 +194,17 @@ class CropImageContractTest {
     }
 
     val bundle = cropImageIntent?.getBundleExtra(CropImage.CROP_IMAGE_EXTRA_BUNDLE)
+    val bundledOptions = bundle?.parcelable<CropImageOptions>(CropImage.CROP_IMAGE_EXTRA_OPTIONS)
     // THEN
     assertEquals(expectedClassName, cropImageIntent?.component?.className)
     assertEquals(expectedSource, bundle?.parcelable(CropImage.CROP_IMAGE_EXTRA_SOURCE))
+    assertEquals(9f, bundledOptions?.frameAccentThickness)
+    assertEquals(Color.CYAN, bundledOptions?.frameAccentColor)
+    assertEquals(11f, bundledOptions?.frameCornerLength)
+    assertEquals(0.25f, bundledOptions?.frameCenterLineLengthFraction)
+    assertEquals(12f, bundledOptions?.frameCenterLineMinLength)
+    assertEquals(30f, bundledOptions?.frameCenterLineMaxLength)
+    assertEquals(14f, bundledOptions?.frameSafeInset)
   }
 
   @Test

@@ -78,7 +78,7 @@ internal class SampleUsingImageViewFragment :
     binding.reset.setOnClickListener {
       binding.cropImageView.resetCropRect()
       binding.cropImageView.imageResource = R.drawable.cat
-      onOptionsApplySelected(CropImageOptions())
+      onOptionsApplySelected(defaultDocumentOptions())
     }
   }
 
@@ -142,6 +142,9 @@ internal class SampleUsingImageViewFragment :
 
   private fun setOptions() {
     binding.cropImageView.cropRect = Rect(100, 300, 500, 1200)
-    onOptionsApplySelected(CropImageOptions())
+    onOptionsApplySelected(defaultDocumentOptions())
   }
+
+  private fun defaultDocumentOptions() =
+    CropImageOptions.defaultDocumentStyleOptions()
 }

@@ -2,6 +2,7 @@ package com.canhub.cropper.sample.optionsdialog
 
 import android.content.DialogInterface
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -45,6 +46,14 @@ internal class SampleOptionsBottomSheet : BottomSheetDialogFragment() {
   }
 
   private fun updateOptions(options: CropImageOptions) {
+    binding.documentPreset.root.visibility =
+      if (options.cropShape == CropImageView.CropShape.OVAL) View.GONE else View.VISIBLE
+    when (documentPreset(options)) {
+      DocumentPreset.COMPACT -> binding.documentPreset.chipCompact.isChecked = true
+      DocumentPreset.BALANCED -> binding.documentPreset.chipBalanced.isChecked = true
+      DocumentPreset.SPACIOUS -> binding.documentPreset.chipSpacious.isChecked = true
+    }
+
     when (options.scaleType) {
       CropImageView.ScaleType.CENTER -> binding.scaleType.chipCenter.isChecked = true
       CropImageView.ScaleType.FIT_CENTER -> binding.scaleType.chipFitCenter.isChecked = true
@@ -60,17 +69,20 @@ internal class SampleOptionsBottomSheet : BottomSheetDialogFragment() {
     when (options.cropShape) {
       CropImageView.CropShape.RECTANGLE -> {
         binding.cropShape.chipRectangle.isChecked = true
-        // Enabling the corner shape selection functionality only for Rectangle shape cropper for now
-        // To expose to other crop shape, we will need to for necessary changes in CropOverlay class
-        binding.cornerShape.root.visibility = View.VISIBLE
+        binding.cornerShape.root.visibility = View.GONE
       }
       CropImageView.CropShape.OVAL -> {
         binding.cropShape.chipOval.isChecked = true
+        binding.cornerShape.root.visibility = View.VISIBLE
       }
-      CropImageView.CropShape.RECTANGLE_VERTICAL_ONLY ->
+      CropImageView.CropShape.RECTANGLE_VERTICAL_ONLY -> {
         binding.cropShape.chipRectangleVerticalOnly.isChecked = true
-      CropImageView.CropShape.RECTANGLE_HORIZONTAL_ONLY ->
+        binding.cornerShape.root.visibility = View.GONE
+      }
+      CropImageView.CropShape.RECTANGLE_HORIZONTAL_ONLY -> {
         binding.cropShape.chipRectangleHorizontalOnly.isChecked = true
+        binding.cornerShape.root.visibility = View.GONE
+      }
     }
 
     when (options.guidelines) {
@@ -109,6 +121,18 @@ internal class SampleOptionsBottomSheet : BottomSheetDialogFragment() {
   }
 
   private fun bindingActions() {
+    binding.documentPreset.chipCompact.setOnClickListener {
+      options = applyDocumentPreset(options, DocumentPreset.COMPACT)
+    }
+
+    binding.documentPreset.chipBalanced.setOnClickListener {
+      options = applyDocumentPreset(options, DocumentPreset.BALANCED)
+    }
+
+    binding.documentPreset.chipSpacious.setOnClickListener {
+      options = applyDocumentPreset(options, DocumentPreset.SPACIOUS)
+    }
+
     binding.scaleType.chipCenter.setOnClickListener {
       options = options.copy(scaleType = CropImageView.ScaleType.CENTER)
     }
@@ -127,22 +151,26 @@ internal class SampleOptionsBottomSheet : BottomSheetDialogFragment() {
 
     binding.cropShape.chipRectangle.setOnClickListener {
       options = options.copy(cropShape = CropImageView.CropShape.RECTANGLE)
-      binding.cornerShape.root.visibility = View.VISIBLE
+      binding.cornerShape.root.visibility = View.GONE
+      binding.documentPreset.root.visibility = View.VISIBLE
     }
 
     binding.cropShape.chipOval.setOnClickListener {
       options = options.copy(cropShape = CropImageView.CropShape.OVAL)
-      binding.cornerShape.root.visibility = View.GONE
+      binding.cornerShape.root.visibility = View.VISIBLE
+      binding.documentPreset.root.visibility = View.GONE
     }
 
     binding.cropShape.chipRectangleVerticalOnly.setOnClickListener {
       options = options.copy(cropShape = CropImageView.CropShape.RECTANGLE_VERTICAL_ONLY)
       binding.cornerShape.root.visibility = View.GONE
+      binding.documentPreset.root.visibility = View.VISIBLE
     }
 
     binding.cropShape.chipRectangleHorizontalOnly.setOnClickListener {
       options = options.copy(cropShape = CropImageView.CropShape.RECTANGLE_HORIZONTAL_ONLY)
       binding.cornerShape.root.visibility = View.GONE
+      binding.documentPreset.root.visibility = View.VISIBLE
     }
 
     binding.cornerShape.chipRectangle.setOnClickListener {
@@ -246,4 +274,49 @@ internal class SampleOptionsBottomSheet : BottomSheetDialogFragment() {
     private lateinit var listener: Listener
     private const val OPTIONS_KEY = "OPTIONS_KEY"
   }
+
+  private enum class DocumentPreset {
+    COMPACT,
+    BALANCED,
+    SPACIOUS,
+  }
+
+  private fun documentPreset(options: CropImageOptions) = when {
+    options.frameSafeInset <= dp(12f) -> DocumentPreset.COMPACT
+    options.frameSafeInset >= dp(20f) -> DocumentPreset.SPACIOUS
+    else -> DocumentPreset.BALANCED
+  }
+
+  private fun applyDocumentPreset(
+    options: CropImageOptions,
+    preset: DocumentPreset,
+  ): CropImageOptions {
+    val documentDefaults = CropImageOptions.defaultDocumentStyleOptions()
+    val (cornerLength, centerMin, centerMax, safeInset) = when (preset) {
+      DocumentPreset.COMPACT -> listOf(dp(16f), dp(8f), dp(22f), dp(12f))
+      DocumentPreset.BALANCED -> listOf(dp(20f), dp(10f), dp(28f), dp(16f))
+      DocumentPreset.SPACIOUS -> listOf(dp(24f), dp(12f), dp(32f), dp(20f))
+    }
+    return options.copy(
+      guidelines = CropImageView.Guidelines.OFF,
+      autoZoomEnabled = true,
+      borderLineThickness = documentDefaults.borderLineThickness,
+      borderLineColor = documentDefaults.borderLineColor,
+      frameAccentThickness = documentDefaults.frameAccentThickness,
+      frameAccentColor = documentDefaults.frameAccentColor,
+      frameCornerLength = cornerLength,
+      frameCenterLineLengthFraction = documentDefaults.frameCenterLineLengthFraction,
+      frameCenterLineMinLength = centerMin,
+      frameCenterLineMaxLength = centerMax,
+      frameSafeInset = safeInset,
+      backgroundColor = documentDefaults.backgroundColor,
+    )
+  }
+
+  private fun dp(value: Float) =
+    TypedValue.applyDimension(
+      TypedValue.COMPLEX_UNIT_DIP,
+      value,
+      resources.displayMetrics,
+    )
 }

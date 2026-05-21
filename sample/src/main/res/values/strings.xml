@@ -25,6 +25,10 @@
   <string name="guidelines">Guidelines</string>
   <string name="crop_shape">Crop Shape</string>
   <string name="scale_type">Scale Type</string>
+  <string name="document_preset">Document Preset</string>
+  <string name="document_preset_compact">Compact</string>
+  <string name="document_preset_balanced">Balanced</string>
+  <string name="document_preset_spacious">Spacious</string>
   <string name="max_zoom_level">Max Zoom Level</string>
   <string name="zoom_2">2</string>
   <string name="zoom_4">4</string>

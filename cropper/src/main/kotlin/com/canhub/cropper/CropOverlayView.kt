@@ -65,6 +65,21 @@ internal class CropOverlayView @JvmOverloads constructor(
         null
       }
 
+    /** Creates the Paint object for rounded stroke decorations, if thickness < 0 return null. */
+    internal fun getRoundStrokePaintOrNull(thickness: Float, color: Int): Paint? =
+      if (thickness > 0) {
+        Paint().apply {
+          this.color = color
+          strokeWidth = thickness
+          style = Paint.Style.STROKE
+          strokeCap = Paint.Cap.ROUND
+          strokeJoin = Paint.Join.MITER
+          isAntiAlias = true
+        }
+      } else {
+        null
+      }
+
     internal fun getNewPaintWithFill(color: Int): Paint {
       val borderPaint = Paint()
       borderPaint.color = color
@@ -74,7 +89,6 @@ internal class CropOverlayView @JvmOverloads constructor(
     }
   }
 
-  private var mCropCornerRadius: Float = 0f
   private var mCircleCornerFillColor: Int? = null
   private var mOptions: CropImageOptions? = null
 
@@ -102,6 +116,9 @@ internal class CropOverlayView @JvmOverloads constructor(
   /** The Paint used to draw the corners of the Border. */
   private var mBorderCornerPaint: Paint? = null
 
+  /** The Paint used to draw document frame accents. */
+  private var mFrameAccentPaint: Paint? = null
+
   /** The Paint used to draw the guidelines within the crop area when pressed. */
   private var mGuidelinePaint: Paint? = null
 
@@ -120,6 +137,9 @@ internal class CropOverlayView @JvmOverloads constructor(
   /** Used for oval crop window shape or non-straight rotation drawing. */
   private val mPath = Path()
 
+  /** Used for drawing the document frame corner paths. */
+  private val mFramePath = Path()
+
   /** The bounding box around the Bitmap that we are cropping. */
   private val mBoundsPoints = FloatArray(8)
 
@@ -132,11 +152,20 @@ internal class CropOverlayView @JvmOverloads constructor(
   /** The bounding image view height used to know the crop overlay is at view edges. */
   private var mViewHeight = 0
 
-  /** The offset to draw the border corner from the border. */
-  private var mBorderCornerOffset = 0f
-
   /** The length of the border corner to draw. */
   private var mBorderCornerLength = 0f
+
+  /** The length of the document frame corner accents. */
+  private var mFrameCornerLength = 0f
+
+  /** The center segment length ratio for the document frame. */
+  private var mFrameCenterLineLengthFraction = 0f
+
+  /** The minimum center segment length for the document frame. */
+  private var mFrameCenterLineMinLength = 0f
+
+  /** The maximum center segment length for the document frame. */
+  private var mFrameCenterLineMaxLength = 0f
 
   /** The initial crop window padding from image borders. */
   private var mInitialCropWindowPaddingRatio = 0f
@@ -384,14 +413,6 @@ internal class CropOverlayView @JvmOverloads constructor(
     mSnapRadius = snapRadius
   }
 
-  /**
-   * Radius of the circular crop corner
-   * Default radius is 10
-   */
-  fun setCropCornerRadius(cornerRadius: Float) {
-    mCropCornerRadius = cornerRadius
-  }
-
   /** Set multitouch functionality to enabled/disabled. */
   fun setMultiTouchEnabled(multiTouchEnabled: Boolean): Boolean {
     if (mMultiTouchEnabled != multiTouchEnabled) {
@@ -488,7 +509,6 @@ internal class CropOverlayView @JvmOverloads constructor(
     cropLabelTextSize = options.cropperLabelTextSize
     cropLabelText = options.cropperLabelText.orEmpty()
     isCropLabelEnabled = options.showCropLabel
-    mCropCornerRadius = options.cropCornerRadius
     cornerShape = options.cornerShape
     cropShape = options.cropShape
     mSnapRadius = options.snapRadius
@@ -505,10 +525,14 @@ internal class CropOverlayView @JvmOverloads constructor(
     mTouchRadius = options.touchRadius
     mInitialCropWindowPaddingRatio = options.initialCropWindowPaddingRatio
     mBorderPaint = getNewPaintOrNull(options.borderLineThickness, options.borderLineColor)
-    mBorderCornerOffset = options.borderCornerOffset
     mBorderCornerLength = options.borderCornerLength
     mCircleCornerFillColor = options.circleCornerFillColorHexValue
     mBorderCornerPaint = getNewPaintOrNull(options.borderCornerThickness, options.borderCornerColor)
+    mFrameAccentPaint = getRoundStrokePaintOrNull(options.frameAccentThickness, options.frameAccentColor)
+    mFrameCornerLength = options.frameCornerLength
+    mFrameCenterLineLengthFraction = options.frameCenterLineLengthFraction
+    mFrameCenterLineMinLength = options.frameCenterLineMinLength
+    mFrameCenterLineMaxLength = options.frameCenterLineMaxLength
     mGuidelinePaint = getNewPaintOrNull(options.guidelinesThickness, options.guidelinesColor)
     mBackgroundPaint = getNewPaint(options.backgroundColor)
     textLabelPaint = getTextPaint(options)
@@ -658,7 +682,7 @@ internal class CropOverlayView @JvmOverloads constructor(
     super.onDraw(canvas)
     // Draw translucent background for the cropped area.
     drawBackground(canvas)
-    if (mCropWindowHandler.showGuidelines()) {
+    if (cropShape == CropShape.OVAL && mCropWindowHandler.showGuidelines()) {
       // Determines whether guidelines should be drawn or not
       if (guidelines == Guidelines.ON) {
         drawGuidelines(canvas)
@@ -668,11 +692,29 @@ internal class CropOverlayView @JvmOverloads constructor(
         )
       }
     }
-    // To retain the changes in Paint object when the App goes background this is required
-    mBorderCornerPaint = getNewPaintOrNull(mOptions?.borderCornerThickness ?: 0.0f, mOptions?.borderCornerColor ?: Color.WHITE)
     drawCropLabelText(canvas)
     drawBorders(canvas)
-    drawCorners(canvas)
+    when (cropShape) {
+      CropShape.OVAL -> {
+        // To retain the changes in Paint object when the App goes background this is required.
+        mBorderCornerPaint = getNewPaintOrNull(
+          mOptions?.borderCornerThickness ?: 0.0f,
+          mOptions?.borderCornerColor ?: Color.WHITE,
+        )
+        drawCorners(canvas)
+      }
+      CropShape.RECTANGLE,
+      CropShape.RECTANGLE_VERTICAL_ONLY,
+      CropShape.RECTANGLE_HORIZONTAL_ONLY,
+      -> {
+        mFrameAccentPaint = getRoundStrokePaintOrNull(
+          mOptions?.frameAccentThickness ?: 0.0f,
+          mOptions?.frameAccentColor ?: Color.WHITE,
+        )
+        drawDocumentFrame(canvas)
+      }
+      null -> Unit
+    }
 
     if (SDK_INT >= Build.VERSION_CODES.Q) {
       setSystemGestureExclusionRects()
@@ -889,88 +931,119 @@ internal class CropOverlayView @JvmOverloads constructor(
       val cornerWidth = mBorderCornerPaint!!.strokeWidth
       val cornerOffset = (cornerWidth - lineWidth) / 2
       val cornerExtension = cornerWidth / 2 + cornerOffset
-      val w: Float = when (cropShape) {
-        // for rectangle crop shape we allow the corners to be offset from the borders
-        CropShape.RECTANGLE_VERTICAL_ONLY,
-        CropShape.RECTANGLE_HORIZONTAL_ONLY,
-        CropShape.RECTANGLE,
-        -> cornerWidth / 2 + mBorderCornerOffset
-        CropShape.OVAL -> cornerWidth / 2
-        else -> throw IllegalStateException("Unrecognized crop shape")
-      }
       val rect = mCropWindowHandler.getRect()
-      rect.inset(w, w)
-      drawCornerBasedOnShape(canvas, rect, cornerOffset, cornerExtension)
+      rect.inset(cornerWidth / 2, cornerWidth / 2)
+      drawOvalCornerLines(canvas, rect, cornerOffset, cornerExtension)
       if (cornerShape == CropImageView.CropCornerShape.OVAL) {
         // To draw fill color updated paint object is needed and the corners to be redrawn
         mBorderCornerPaint = mCircleCornerFillColor?.let { getNewPaintWithFill(it) }
-        drawCornerBasedOnShape(canvas, rect, cornerOffset, cornerExtension)
+        drawOvalCornerCircles(canvas, rect, cornerExtension)
       }
     }
   }
 
-  /**
-   * Draw corners of crop overlay based on crop shape.
-   * In case of RECTANGLE crop shape call [drawCornerShape], to handle the corner draw based on
-   * crop corner shape.
-   */
-  private fun drawCornerBasedOnShape(
+  /** Draws the document frame accents around the crop area. */
+  private fun drawDocumentFrame(canvas: Canvas) {
+    val accentPaint = mFrameAccentPaint ?: return
+    val rect = mCropWindowHandler.getRect()
+    val accentOffset = accentPaint.strokeWidth / 2
+    val horizontalLength = getScaledCenterLineLength(rect.width())
+    val verticalLength = getScaledCenterLineLength(rect.height())
+    drawDocumentCorner(
+      canvas = canvas,
+      startX = rect.left + mFrameCornerLength,
+      startY = rect.top - accentOffset,
+      cornerX = rect.left - accentOffset,
+      cornerY = rect.top - accentOffset,
+      endX = rect.left - accentOffset,
+      endY = rect.top + mFrameCornerLength,
+    )
+    drawDocumentCorner(
+      canvas = canvas,
+      startX = rect.right - mFrameCornerLength,
+      startY = rect.top - accentOffset,
+      cornerX = rect.right + accentOffset,
+      cornerY = rect.top - accentOffset,
+      endX = rect.right + accentOffset,
+      endY = rect.top + mFrameCornerLength,
+    )
+    drawDocumentCorner(
+      canvas = canvas,
+      startX = rect.left + mFrameCornerLength,
+      startY = rect.bottom + accentOffset,
+      cornerX = rect.left - accentOffset,
+      cornerY = rect.bottom + accentOffset,
+      endX = rect.left - accentOffset,
+      endY = rect.bottom - mFrameCornerLength,
+    )
+    drawDocumentCorner(
+      canvas = canvas,
+      startX = rect.right - mFrameCornerLength,
+      startY = rect.bottom + accentOffset,
+      cornerX = rect.right + accentOffset,
+      cornerY = rect.bottom + accentOffset,
+      endX = rect.right + accentOffset,
+      endY = rect.bottom - mFrameCornerLength,
+    )
+    if (cropShape != CropShape.RECTANGLE_HORIZONTAL_ONLY) {
+      canvas.drawLine(
+        rect.centerX() - horizontalLength / 2,
+        rect.top - accentOffset,
+        rect.centerX() + horizontalLength / 2,
+        rect.top - accentOffset,
+        accentPaint,
+      )
+      canvas.drawLine(
+        rect.centerX() - horizontalLength / 2,
+        rect.bottom + accentOffset,
+        rect.centerX() + horizontalLength / 2,
+        rect.bottom + accentOffset,
+        accentPaint,
+      )
+    }
+    if (cropShape != CropShape.RECTANGLE_VERTICAL_ONLY) {
+      canvas.drawLine(
+        rect.left - accentOffset,
+        rect.centerY() - verticalLength / 2,
+        rect.left - accentOffset,
+        rect.centerY() + verticalLength / 2,
+        accentPaint,
+      )
+      canvas.drawLine(
+        rect.right + accentOffset,
+        rect.centerY() - verticalLength / 2,
+        rect.right + accentOffset,
+        rect.centerY() + verticalLength / 2,
+        accentPaint,
+      )
+    }
+  }
+
+  /** Draws one sharp document frame corner with rounded line ends. */
+  private fun drawDocumentCorner(
     canvas: Canvas,
-    rect: RectF,
-    cornerOffset: Float,
-    cornerExtension: Float,
+    startX: Float,
+    startY: Float,
+    cornerX: Float,
+    cornerY: Float,
+    endX: Float,
+    endY: Float,
   ) {
-    when (cropShape) {
-      CropShape.RECTANGLE -> {
-        drawCornerShape(canvas, rect, cornerOffset, cornerExtension, mCropCornerRadius)
-      }
-      CropShape.OVAL -> {
-        drawLineShape(canvas, rect, cornerOffset, cornerExtension)
-      }
-      CropShape.RECTANGLE_VERTICAL_ONLY -> {
-        // For the vertical variant, the user can only resize the crop window up and down, so the
-        // "corners" are in the center of the top and bottom edges of the crop window.
-        canvas.drawLine(
-          rect.centerX() - mBorderCornerLength,
-          rect.top - cornerOffset,
-          rect.centerX() + mBorderCornerLength,
-          rect.top - cornerOffset,
-          mBorderCornerPaint!!,
-        )
-        canvas.drawLine(
-          rect.centerX() - mBorderCornerLength,
-          rect.bottom + cornerOffset,
-          rect.centerX() + mBorderCornerLength,
-          rect.bottom + cornerOffset,
-          mBorderCornerPaint!!,
-        )
-      }
-      CropShape.RECTANGLE_HORIZONTAL_ONLY -> {
-        // For the horizontal variant, the user can only resize the crop window left and right, so
-        // the "corners" are in the center of the left and right edges of the crop window.
-        canvas.drawLine(
-          rect.left - cornerOffset,
-          rect.centerY() - mBorderCornerLength,
-          rect.left - cornerOffset,
-          rect.centerY() + mBorderCornerLength,
-          mBorderCornerPaint!!,
-        )
-        canvas.drawLine(
-          rect.right + cornerOffset,
-          rect.centerY() - mBorderCornerLength,
-          rect.right + cornerOffset,
-          rect.centerY() + mBorderCornerLength,
-          mBorderCornerPaint!!,
-        )
-      }
-      else -> throw IllegalStateException("Unrecognized crop shape")
-    }
+    mFramePath.reset()
+    mFramePath.moveTo(startX, startY)
+    mFramePath.lineTo(cornerX, cornerY)
+    mFramePath.lineTo(endX, endY)
+    canvas.drawPath(mFramePath, mFrameAccentPaint!!)
   }
 
-  /**
-   * Draws rectangle shape corners
-   */
-  private fun drawLineShape(
+  /** Returns the scaled document frame center segment length for the given edge size. */
+  private fun getScaledCenterLineLength(edgeLength: Float): Float =
+    (edgeLength * mFrameCenterLineLengthFraction)
+      .coerceIn(mFrameCenterLineMinLength, mFrameCenterLineMaxLength)
+      .coerceAtMost(edgeLength.coerceAtLeast(0f))
+
+  /** Draws line-based corners for the oval crop overlay. */
+  private fun drawOvalCornerLines(
     canvas: Canvas,
     rect: RectF,
     cornerOffset: Float,
@@ -1038,60 +1111,38 @@ internal class CropOverlayView @JvmOverloads constructor(
     )
   }
 
-  /**
-   * Based on corner shape calls either [drawCircleShape] or [drawLineShape]
-   */
-  private fun drawCornerShape(
-    canvas: Canvas,
-    rect: RectF,
-    cornerOffset: Float,
-    cornerExtension: Float,
-    radius: Float,
-  ) {
-    when (cornerShape) {
-      CropImageView.CropCornerShape.OVAL -> {
-        drawCircleShape(canvas, rect, cornerOffset, radius)
-      }
-      CropImageView.CropCornerShape.RECTANGLE -> drawLineShape(canvas, rect, cornerOffset, cornerExtension)
-      null -> Unit
-    }
-  }
-
-  /**
-   * Draws circle shape corners
-   */
-  private fun drawCircleShape(
+  /** Draws circular corner markers for the oval crop overlay. */
+  private fun drawOvalCornerCircles(
     canvas: Canvas,
     rect: RectF,
     cornerExtension: Float,
-    radius: Float,
   ) {
     // Top left
     canvas.drawCircle(
       rect.left - cornerExtension,
       (rect.top - cornerExtension),
-      radius,
+      mBorderCornerLength,
       mBorderCornerPaint!!,
     )
     // Top right
     canvas.drawCircle(
       rect.right + cornerExtension,
       rect.top - cornerExtension,
-      radius,
+      mBorderCornerLength,
       mBorderCornerPaint!!,
     )
     // Bottom left
     canvas.drawCircle(
       rect.left - cornerExtension,
       rect.bottom + cornerExtension,
-      radius,
+      mBorderCornerLength,
       mBorderCornerPaint!!,
     )
     // Bottom right
     canvas.drawCircle(
       rect.right + cornerExtension,
       rect.bottom + cornerExtension,
-      radius,
+      mBorderCornerLength,
       mBorderCornerPaint!!,
     )
   }
@@ -1299,13 +1350,14 @@ internal class CropOverlayView @JvmOverloads constructor(
       val newLeft = x - dX
       val newRight = x + dX
       val newBottom = y + dY
+      calculateBounds(rect)
 
       if (newLeft < newRight &&
         newTop <= newBottom &&
-        newLeft >= 0 &&
-        newRight <= mCropWindowHandler.getMaxCropWidth() &&
-        newTop >= 0 &&
-        newBottom <= mCropWindowHandler.getMaxCropHeight()
+        newLeft >= mCalcBounds.left &&
+        newRight <= mCalcBounds.right &&
+        newTop >= mCalcBounds.top &&
+        newBottom <= mCalcBounds.bottom
       ) {
         rect[newLeft, newTop, newRight] = newBottom
         mCropWindowHandler.setRect(rect)

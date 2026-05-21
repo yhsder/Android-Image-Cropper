@@ -27,6 +27,10 @@
         android:paddingBottom="@dimen/keyline_x4"
         >
       <include
+          android:id="@+id/documentPreset"
+          layout="@layout/chip_document_preset"
+          />
+      <include
           android:id="@+id/scaleType"
           layout="@layout/chip_scale_type"
           />
