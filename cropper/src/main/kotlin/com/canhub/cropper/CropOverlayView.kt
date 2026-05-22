@@ -947,72 +947,79 @@ internal class CropOverlayView @JvmOverloads constructor(
     val accentPaint = mFrameAccentPaint ?: return
     val rect = mCropWindowHandler.getRect()
     val accentOffset = accentPaint.strokeWidth / 2
+    // Align the inner edge of the accent frame with the inner edge of the border.
+    val borderWidth = mBorderPaint?.strokeWidth ?: 0f
+    val offset = accentOffset - borderWidth
     val horizontalLength = getScaledCenterLineLength(rect.width())
     val verticalLength = getScaledCenterLineLength(rect.height())
-    drawDocumentCorner(
-      canvas = canvas,
-      startX = rect.left + mFrameCornerLength,
-      startY = rect.top - accentOffset,
-      cornerX = rect.left - accentOffset,
-      cornerY = rect.top - accentOffset,
-      endX = rect.left - accentOffset,
-      endY = rect.top + mFrameCornerLength,
+    // Clamp corner length so it never exceeds half the crop rect dimension.
+    val cornerLen = mFrameCornerLength.coerceAtMost(
+      minOf(rect.width() / 2, rect.height() / 2).coerceAtLeast(0f),
     )
     drawDocumentCorner(
       canvas = canvas,
-      startX = rect.right - mFrameCornerLength,
-      startY = rect.top - accentOffset,
-      cornerX = rect.right + accentOffset,
-      cornerY = rect.top - accentOffset,
-      endX = rect.right + accentOffset,
-      endY = rect.top + mFrameCornerLength,
+      startX = rect.left + cornerLen,
+      startY = rect.top - offset,
+      cornerX = rect.left - offset,
+      cornerY = rect.top - offset,
+      endX = rect.left - offset,
+      endY = rect.top + cornerLen,
     )
     drawDocumentCorner(
       canvas = canvas,
-      startX = rect.left + mFrameCornerLength,
-      startY = rect.bottom + accentOffset,
-      cornerX = rect.left - accentOffset,
-      cornerY = rect.bottom + accentOffset,
-      endX = rect.left - accentOffset,
-      endY = rect.bottom - mFrameCornerLength,
+      startX = rect.right - cornerLen,
+      startY = rect.top - offset,
+      cornerX = rect.right + offset,
+      cornerY = rect.top - offset,
+      endX = rect.right + offset,
+      endY = rect.top + cornerLen,
     )
     drawDocumentCorner(
       canvas = canvas,
-      startX = rect.right - mFrameCornerLength,
-      startY = rect.bottom + accentOffset,
-      cornerX = rect.right + accentOffset,
-      cornerY = rect.bottom + accentOffset,
-      endX = rect.right + accentOffset,
-      endY = rect.bottom - mFrameCornerLength,
+      startX = rect.left + cornerLen,
+      startY = rect.bottom + offset,
+      cornerX = rect.left - offset,
+      cornerY = rect.bottom + offset,
+      endX = rect.left - offset,
+      endY = rect.bottom - cornerLen,
+    )
+    drawDocumentCorner(
+      canvas = canvas,
+      startX = rect.right - cornerLen,
+      startY = rect.bottom + offset,
+      cornerX = rect.right + offset,
+      cornerY = rect.bottom + offset,
+      endX = rect.right + offset,
+      endY = rect.bottom - cornerLen,
     )
     if (cropShape != CropShape.RECTANGLE_HORIZONTAL_ONLY) {
       canvas.drawLine(
         rect.centerX() - horizontalLength / 2,
-        rect.top - accentOffset,
+        rect.top - offset,
         rect.centerX() + horizontalLength / 2,
-        rect.top - accentOffset,
+        rect.top - offset,
         accentPaint,
       )
       canvas.drawLine(
         rect.centerX() - horizontalLength / 2,
-        rect.bottom + accentOffset,
+        rect.bottom + offset,
         rect.centerX() + horizontalLength / 2,
-        rect.bottom + accentOffset,
+        rect.bottom + offset,
         accentPaint,
       )
     }
     if (cropShape != CropShape.RECTANGLE_VERTICAL_ONLY) {
       canvas.drawLine(
-        rect.left - accentOffset,
+        rect.left - offset,
         rect.centerY() - verticalLength / 2,
-        rect.left - accentOffset,
+        rect.left - offset,
         rect.centerY() + verticalLength / 2,
         accentPaint,
       )
       canvas.drawLine(
-        rect.right + accentOffset,
+        rect.right + offset,
         rect.centerY() - verticalLength / 2,
-        rect.right + accentOffset,
+        rect.right + offset,
         rect.centerY() + verticalLength / 2,
         accentPaint,
       )
